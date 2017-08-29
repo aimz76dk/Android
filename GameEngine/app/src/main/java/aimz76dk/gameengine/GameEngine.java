@@ -34,14 +34,21 @@ public class GameEngine extends Activity implements Runnable
         {
             if (isFinishing())
             {
-                stateChanges.add(stateChanges.size(), State.Disposed);
+                stateChanges.add(State.Disposed);
             }
             else
             {
-                stateChanges.add(stateChanges.size(), State.Paused);
+                stateChanges.add(State.Paused);
             }
         }
-
+        try
+        {
+            mainLoopThread.join();
+        }
+        catch (Exception e)
+        {
+            Log.d("GameEngine", "something went shit when waiting for Main thread to die");
+        }
     }
 
     public void onResume()
