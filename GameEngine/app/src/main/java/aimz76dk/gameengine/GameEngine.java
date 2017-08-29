@@ -30,6 +30,13 @@ public class GameEngine extends Activity implements Runnable
     public void onPause()
     {
         super.onPause();
+        synchronized (stateChanges)
+        {
+            if (isFinishing())
+            {
+
+            }
+        }
 
     }
 
