@@ -4,23 +4,27 @@ import android.app.Activity;
 import android.os.Bundle;
 import android.view.WindowManager;
 
-public class GameEngine extends Activity {
+public class GameEngine extends Activity
+{
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    protected void onCreate(Bundle savedInstanceState)
+    {
         super.onCreate(savedInstanceState);
 
         this.getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN
                 | WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
-        //setContentView(R.layout.activity_main);
+        // setContentView(R.layout.activity_main);
     }
 
-    public void onPause() {
+    public void onPause()
+    {
         super.onPause();
     }
 
-    public void onResume() {
+    public void onResume()
+    {
         super.onResume();
     }
 }
