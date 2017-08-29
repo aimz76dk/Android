@@ -34,7 +34,11 @@ public class GameEngine extends Activity implements Runnable
         {
             if (isFinishing())
             {
-
+                stateChanges.add(stateChanges.size(), State.Disposed);
+            }
+            else
+            {
+                stateChanges.add(stateChanges.size(), State.Paused);
             }
         }
 
