@@ -1,15 +1,26 @@
 package aimz76dk.gameengine;
 
 import android.app.Activity;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.SurfaceHolder;
+import android.view.SurfaceView;
 import android.view.WindowManager;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class GameEngine extends Activity implements Runnable
+public abstract class GameEngine extends Activity implements Runnable
 {
+    private Screen screen;
+    private Canvas canvas;
+
+    private SurfaceView surfaceView;
+    private SurfaceHolder surfaceHolder;
+
     private Thread mainLoopThread;
     private State state = State.Paused;
     private List<State> stateChanges = new ArrayList<>();
@@ -19,20 +30,68 @@ public class GameEngine extends Activity implements Runnable
     {
         super.onCreate(savedInstanceState);
 
-        this.getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN
-                | WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        this.getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN |
+                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
+        surfaceView = new SurfaceView(this);
+        setContentView(surfaceView);
+        surfaceHolder = surfaceView.getHolder();
 
-
-        // setContentView(R.layout.activity_main);
+        screen = createStartScreen();
     }
+
+    public abstract Screen createStartScreen();
+
+    public void setScreen(Screen screen)
+    {
+        if(this.screen != null)
+        {
+            this.screen.dispose();
+        }
+        this.screen = screen;
+    }
+
+    public Bitmap loadBitmap(String filename)
+    {
+        return null;
+    }
+    //public Music loadMusic(String filename) { return null; }
+    //public Sound loadSound(String filename) { return null; }
+
+    public void clearFrameBuffer(int color)
+    {
+        canvas.drawColor(color);
+    }
+    public int getFrameBufferWidth() { return 0; }
+    public int getFrameBufferHeight()
+    {
+        return 0;
+    }
+    public void drawBitmap(Bitmap bitmap, int x, int y) {}
+    public void drawBitmap(Bitmap bitmap, int x, int y, int srcX, int srcY, int srcWidth, int srcHeight) {}
+
+    public boolean isTouchDown(int pointer)
+    {
+        return false;
+    }
+    public int getTouchX(int pointer)
+    {
+        return 0;
+    }
+    public int getTouchY(int pointer)
+    {
+        return 0;
+    }
+
+    //public List<TouchEvent> getTouchEvents() { return null; }
+    public float[] getAccelerometer(){ return null; }
 
     public void onPause()
     {
         super.onPause();
-        synchronized (stateChanges)
+        synchronized(stateChanges)
         {
-            if (isFinishing())
+            if(isFinishing())
             {
                 stateChanges.add(State.Disposed);
             }
@@ -45,15 +104,21 @@ public class GameEngine extends Activity implements Runnable
         {
             mainLoopThread.join();
         }
-        catch (Exception e)
+        catch(Exception e)
         {
-            Log.d("GameEngine", "something went shit when waiting for Main thread to die");
+            Log.d("GameEngine", "something went wrong");
         }
     }
 
     public void onResume()
     {
         super.onResume();
+        synchronized(stateChanges)
+        {
+            stateChanges.add(State.Resume);
+        }
+        mainLoopThread = new Thread(this);
+        mainLoopThread.start();
     }
 
     @Override
@@ -61,31 +126,59 @@ public class GameEngine extends Activity implements Runnable
     {
         while(true)
         {
-            synchronized (stateChanges)
+            synchronized(stateChanges)
             {
                 int stopValue = stateChanges.size();
-                for (int i = 0; i < stopValue; i++)
+                for(int i = 0; i < stopValue; i++)
                 {
                     state = stateChanges.get(i);
-                    if (state == State.Disposed)
+                    switch(state)
                     {
-                        Log.d("GameEngine", "Main Loop thread is disposed");
-                        return;
-                    }
-                    if (state == State.Paused)
-                    {
-                        Log.d("GameEngine", "Main Loop thread is paused");
-                        return;
-                    }
-                    if (state == State.Resume)
-                    {
-                        Log.d("GameEngine", "Main Loop thread is resumed");
-                        state = State.Running;
+                        case Disposed:
+                            if(screen != null)
+                            {
+                                screen.dispose();
+                            }
+                            Log.d("GameEngine" , "Main Loop thread is disposed");
+                            stateChanges.clear();
+                            return;
+                        case Paused:
+                            if(screen != null)
+                            {
+                                screen.pause();
+                            }
+                            Log.d("GameEngine", "Main Loop thread is paused");
+                            stateChanges.clear();
+                            return;
+                        case Resume:
+                            if(screen != null)
+                            {
+                                screen.resume();
+                            }
+                            Log.d("GameEngine", "Main Loop thread is resumed");
+                            state = State.Running;
+                            break;
+                        default: break;
                     }
                 }
                 stateChanges.clear();
             }
+            //After the synchronized state check we can do the actual work of the thread
+            if(state == State.Running)
+            {
+                if(!surfaceHolder.getSurface().isValid())
+                {
+                    continue;
+                }
+                canvas = surfaceHolder.lockCanvas();
+                //now we can do all the drawing stuff
+                //canvas.drawColor(Color.RED);
+                if(screen != null )
+                {
+                    screen.update(0);
+                }
+                surfaceHolder.unlockCanvasAndPost(canvas);
+            }
         }
-
     }
 }
