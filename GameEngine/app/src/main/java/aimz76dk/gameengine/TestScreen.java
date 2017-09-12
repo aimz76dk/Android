@@ -1,20 +1,26 @@
 package aimz76dk.gameengine;
 
-
+import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.util.Log;
 
 public class TestScreen extends Screen
 {
+    Bitmap bob = null;
+
     public TestScreen(GameEngine gameEngine)
+
     {
         super(gameEngine);
+        bob = gameEngine.loadBitmap("bob.png");
     }
 
     @Override
     public void update(float deltaTime)
     {
-        gameEngine.clearFrameBuffer(Color.GREEN);
+        gameEngine.clearFrameBuffer(Color.BLUE);
+        gameEngine.drawBitmap(bob, 10, 10);
+        gameEngine.drawBitmap(bob, 100, 200, 64, 64, 128, 128);
     }
 
     @Override

@@ -2,14 +2,18 @@ package aimz76dk.gameengine;
 
 import android.app.Activity;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Rect;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.WindowManager;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -17,6 +21,11 @@ public abstract class GameEngine extends Activity implements Runnable
 {
     private Screen screen;
     private Canvas canvas;
+    private Bitmap virtualScreen;
+    Rect src = new Rect();
+    Rect dst = new Rect();
+
+    private TouchHandler touchHandler;
 
     private SurfaceView surfaceView;
     private SurfaceHolder surfaceHolder;
@@ -38,6 +47,33 @@ public abstract class GameEngine extends Activity implements Runnable
         surfaceHolder = surfaceView.getHolder();
 
         screen = createStartScreen();
+
+        if (surfaceView.getWidth() > surfaceView.getHeight())
+        {
+            setVirtualScreen(480, 320);
+        }
+        else
+        {
+            setVirtualScreen(320, 480);
+        }
+       // touchHandler =
+    } // End of onCreate() method
+
+    public void setVirtualScreen(int width, int height)
+    {
+        if (virtualScreen != null) virtualScreen.recycle();
+        virtualScreen = Bitmap.createBitmap(width, height, Bitmap.Config.RGB_565);
+        canvas = new Canvas(virtualScreen);
+    }
+
+    public int getFrameBufferWidth()
+    {
+        return virtualScreen.getWidth();
+    }
+
+    public int getFrameBufferHeight()
+    {
+        return virtualScreen.getHeight();
     }
 
     public abstract Screen createStartScreen();
@@ -53,8 +89,36 @@ public abstract class GameEngine extends Activity implements Runnable
 
     public Bitmap loadBitmap(String filename)
     {
-        return null;
-    }
+        InputStream in = null;
+        Bitmap bitmap = null;
+
+        try
+        {
+            in = getAssets().open(filename);
+            bitmap = BitmapFactory.decodeStream(in);
+            if (bitmap == null)
+            {
+                throw new RuntimeException(" *** There was no graphics in this file: " + filename);
+            }
+            return bitmap;
+        }
+        catch (IOException e)
+        {
+            throw new RuntimeException(" *** Could not load the stupid graphic file: " + filename);
+        }
+        finally
+        {
+            if (in != null)
+            {
+                try
+                {
+                    in.close();
+                }
+                catch (IOException e) {}
+            }
+        }
+    } // End of loadBitmap() method
+
     //public Music loadMusic(String filename) { return null; }
     //public Sound loadSound(String filename) { return null; }
 
@@ -62,13 +126,29 @@ public abstract class GameEngine extends Activity implements Runnable
     {
         canvas.drawColor(color);
     }
-    public int getFrameBufferWidth() { return 0; }
-    public int getFrameBufferHeight()
+
+
+    public void drawBitmap(Bitmap bitmap, int x, int y)
     {
-        return 0;
+        if (canvas != null) canvas.drawBitmap(bitmap, x, y, null);
     }
-    public void drawBitmap(Bitmap bitmap, int x, int y) {}
-    public void drawBitmap(Bitmap bitmap, int x, int y, int srcX, int srcY, int srcWidth, int srcHeight) {}
+
+    public void drawBitmap(Bitmap bitmap, int x, int y, int srcX, int srcY, int srcWidth, int srcHeight)
+    {
+        Rect src = new Rect();
+        Rect dst = new Rect();
+        if (canvas == null) return;
+        src.left = srcX;
+        src.top = srcY;
+        src.right = srcX + srcWidth;
+        src.bottom = srcY + srcHeight;
+        dst.left = x;
+        dst.top = y;
+        dst.right = x + srcWidth;
+        dst.bottom = y + srcHeight;
+        canvas.drawBitmap(bitmap, src, dst, null);
+
+    }
 
     public boolean isTouchDown(int pointer)
     {
@@ -163,20 +243,31 @@ public abstract class GameEngine extends Activity implements Runnable
                 }
                 stateChanges.clear();
             }
-            //After the synchronized state check we can do the actual work of the thread
+            //after the synchronized state check we can do the actual work of the thread
             if(state == State.Running)
             {
                 if(!surfaceHolder.getSurface().isValid())
                 {
                     continue;
                 }
-                canvas = surfaceHolder.lockCanvas();
+                Canvas canvas = surfaceHolder.lockCanvas();
                 //now we can do all the drawing stuff
-                //canvas.drawColor(Color.RED);
                 if(screen != null )
                 {
-                    screen.update(0);
+                    screen.update(0); //this is were the game does all the logic for the screen
                 }
+                //after the screen has made all game object to the virtualScreen
+                //we need to copy and resize the virtualScreen to the actual physical surfaceView
+                src.left = 0;
+                src.top = 0;
+                src.right = virtualScreen.getWidth() - 1; // -1 because pixels are 0 indexed
+                src.bottom = virtualScreen.getHeight() - 1;
+                dst.left = 0;
+                dst.top = 0;
+                dst.right = surfaceView.getWidth();
+                dst.bottom = surfaceView.getHeight();
+                canvas.drawBitmap(virtualScreen, src, dst, null);
+
                 surfaceHolder.unlockCanvasAndPost(canvas);
             }
         }
