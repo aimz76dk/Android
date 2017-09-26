@@ -2,6 +2,7 @@ package aimz76dk.gameengine;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.res.AssetFileDescriptor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
@@ -11,6 +12,9 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.media.AudioAttributes;
+import android.media.AudioManager;
+import android.media.SoundPool;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.SurfaceHolder;
@@ -30,9 +34,12 @@ public abstract class GameEngine extends Activity implements Runnable, SensorEve
     Rect src = new Rect();
     Rect dst = new Rect();
 
+    private SoundPool soundPool;
+
     private TouchHandler touchHandler;
     private TouchEventPool touchEventPool = new TouchEventPool();
     private List<TouchEvent> touchEventBuffer = new ArrayList<>();
+    private List<TouchEvent> touchEventsCopied = new ArrayList<>();
 
     private float[] accelerometer = new float[3];
 
@@ -55,7 +62,6 @@ public abstract class GameEngine extends Activity implements Runnable, SensorEve
         setContentView(surfaceView);
         surfaceHolder = surfaceView.getHolder();
 
-        screen = createStartScreen();
 
         if (surfaceView.getWidth() > surfaceView.getHeight())
         {
@@ -73,12 +79,29 @@ public abstract class GameEngine extends Activity implements Runnable, SensorEve
             Sensor accelerometer = sensorManager.getSensorList(Sensor.TYPE_ACCELEROMETER).get(0);
             sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_GAME);
         }
+
+        setVolumeControlStream(AudioManager.STREAM_MUSIC);
+
+        SoundPool.Builder sBuilder = new SoundPool.Builder();
+        sBuilder.setMaxStreams(20);
+        AudioAttributes.Builder audioAttrBuilder = new AudioAttributes.Builder();
+        audioAttrBuilder.setUsage(AudioAttributes.USAGE_GAME);
+        AudioAttributes audioAttr = audioAttrBuilder.build();
+        sBuilder.setAudioAttributes(audioAttr);
+        this.soundPool = sBuilder.build();
+
+        screen = createStartScreen();
+
+
+        //this.soundPool = new SoundPool(20, AudioManager.STREAM_MUSIC, 0);
+
     } // End of onCreate() method
 
     public void onAccuracyChanged(Sensor sensor, int accuracy) {}
     public void onSenserChanged(SensorEvent event)
     {
         System.arraycopy(event.values, 0, accelerometer, 0, 3);
+        accelerometer[0] = -1.0f * accelerometer[1];
     }
 
     public void setVirtualScreen(int width, int height)
@@ -86,6 +109,37 @@ public abstract class GameEngine extends Activity implements Runnable, SensorEve
         if (virtualScreen != null) virtualScreen.recycle();
         virtualScreen = Bitmap.createBitmap(width, height, Bitmap.Config.RGB_565);
         canvas = new Canvas(virtualScreen);
+    }
+
+    private void fillEvents()
+    {
+        synchronized (touchEventBuffer)
+        {
+            int count = touchEventBuffer.size();
+            for (int i = 0; i < count; i++)
+            {
+                touchEventsCopied.add(touchEventBuffer.get(i)); // copy all object from one list to the other
+            }
+            touchEventBuffer.clear(); // empty the buffer
+        }
+    }
+
+    private void freeEvents()
+    {
+        synchronized (touchEventsCopied)
+        {
+            int count = touchEventsCopied.size();
+            for (int i = 0; i < count; i++)
+            {
+                touchEventPool.free(touchEventsCopied.get(i)); // return all used objects to the free pool
+            }
+            touchEventsCopied.clear();
+        }
+    }
+
+    public List<TouchEvent> getTouchEvents()
+    {
+        return touchEventsCopied;
     }
 
     public int getFrameBufferWidth()
@@ -142,7 +196,21 @@ public abstract class GameEngine extends Activity implements Runnable, SensorEve
     } // End of loadBitmap() method
 
     //public Music loadMusic(String filename) { return null; }
-    //public Sound loadSound(String filename) { return null; }
+    public Sound loadSound(String filename)
+    {
+        try
+        {
+            AssetFileDescriptor assetFileDescriptor = getAssets().openFd(filename);
+            int soundId = soundPool.load(assetFileDescriptor, 0);
+            Sound sound = new Sound(soundPool, soundId);
+            return sound;
+        }
+        catch (IOException e)
+        {
+            throw new RuntimeException("Could not load sound from file " + filename);
+        }
+
+    }
 
     public void clearFrameBuffer(int color)
     {
@@ -189,7 +257,6 @@ public abstract class GameEngine extends Activity implements Runnable, SensorEve
         return virtualY;
     }
 
-    //public List<TouchEvent> getTouchEvents() { return null; }
     public float[] getAccelerometer()
     {
         return accelerometer;
@@ -202,6 +269,7 @@ public abstract class GameEngine extends Activity implements Runnable, SensorEve
         {
             if(isFinishing())
             {
+                soundPool.release();
                 stateChanges.add(State.Disposed);
             }
             else
@@ -284,11 +352,13 @@ public abstract class GameEngine extends Activity implements Runnable, SensorEve
                     continue;
                 }
                 Canvas canvas = surfaceHolder.lockCanvas();
+                fillEvents();
                 //now we can do all the drawing stuff
                 if(screen != null )
                 {
                     screen.update(0); //this is were the game does all the logic for the screen
                 }
+                freeEvents();
                 //after the screen has made all game object to the virtualScreen
                 //we need to copy and resize the virtualScreen to the actual physical surfaceView
                 src.left = 0;

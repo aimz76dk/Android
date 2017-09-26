@@ -83,10 +83,9 @@ public class MultiTouchHandler  implements TouchHandler, View.OnTouchListener
                     }
                 }
                 break;
-
         }
 
-        return false;
+        return true;
     }
 
     @Override
