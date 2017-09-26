@@ -1,11 +1,16 @@
 package aimz76dk.gameengine;
 
 import android.app.Activity;
+import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Rect;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.SurfaceHolder;
@@ -17,7 +22,7 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 
-public abstract class GameEngine extends Activity implements Runnable
+public abstract class GameEngine extends Activity implements Runnable, SensorEventListener
 {
     private Screen screen;
     private Canvas canvas;
@@ -26,6 +31,10 @@ public abstract class GameEngine extends Activity implements Runnable
     Rect dst = new Rect();
 
     private TouchHandler touchHandler;
+    private TouchEventPool touchEventPool = new TouchEventPool();
+    private List<TouchEvent> touchEventBuffer = new ArrayList<>();
+
+    private float[] accelerometer = new float[3];
 
     private SurfaceView surfaceView;
     private SurfaceHolder surfaceHolder;
@@ -56,8 +65,21 @@ public abstract class GameEngine extends Activity implements Runnable
         {
             setVirtualScreen(320, 480);
         }
-       // touchHandler =
+        touchHandler = new MultiTouchHandler(surfaceView, touchEventBuffer, touchEventPool);
+
+        SensorManager sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+        if (sensorManager.getSensorList(Sensor.TYPE_ACCELEROMETER).size() != 0)
+        {
+            Sensor accelerometer = sensorManager.getSensorList(Sensor.TYPE_ACCELEROMETER).get(0);
+            sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_GAME);
+        }
     } // End of onCreate() method
+
+    public void onAccuracyChanged(Sensor sensor, int accuracy) {}
+    public void onSenserChanged(SensorEvent event)
+    {
+        System.arraycopy(event.values, 0, accelerometer, 0, 3);
+    }
 
     public void setVirtualScreen(int width, int height)
     {
@@ -152,19 +174,26 @@ public abstract class GameEngine extends Activity implements Runnable
 
     public boolean isTouchDown(int pointer)
     {
-        return false;
+        return touchHandler.isTouchDown(pointer);
     }
     public int getTouchX(int pointer)
     {
-        return 0;
+        int virtualX = 0;
+        virtualX = (int) ((float)touchHandler.getTouchX(pointer)/(float)surfaceView.getWidth() * virtualScreen.getWidth());
+        return virtualX;
     }
     public int getTouchY(int pointer)
     {
-        return 0;
+        int virtualY = 0;
+        virtualY = (int) ((float)touchHandler.getTouchY(pointer)/(float)surfaceView.getHeight() * virtualScreen.getHeight());
+        return virtualY;
     }
 
     //public List<TouchEvent> getTouchEvents() { return null; }
-    public float[] getAccelerometer(){ return null; }
+    public float[] getAccelerometer()
+    {
+        return accelerometer;
+    }
 
     public void onPause()
     {
@@ -187,6 +216,10 @@ public abstract class GameEngine extends Activity implements Runnable
         catch(Exception e)
         {
             Log.d("GameEngine", "something went wrong");
+        }
+        if (isFinishing())
+        {
+            ((SensorManager) getSystemService(Context.SENSOR_SERVICE)).unregisterListener(this);
         }
     }
 

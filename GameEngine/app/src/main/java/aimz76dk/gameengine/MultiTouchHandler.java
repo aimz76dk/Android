@@ -28,25 +28,84 @@ public class MultiTouchHandler  implements TouchHandler, View.OnTouchListener
         int pointerIndex = (event.getAction() & MotionEvent.ACTION_POINTER_INDEX_MASK) >> MotionEvent.ACTION_POINTER_INDEX_SHIFT;
         int pointerId = event.getPointerId(pointerIndex);
 
+        switch (action)
+        {
+            case MotionEvent.ACTION_DOWN:
+            case MotionEvent.ACTION_POINTER_DOWN:
+                touchEvent = touchEventPool.obtains();
+                touchEvent.type = TouchEvent.TouchEventType.Down;
+                touchEvent.pointer = pointerId;
+                touchEvent.x = (int) event.getX(pointerIndex);
+                touchX[pointerId] = touchEvent.x;
+                touchEvent.y = (int) event.getY(pointerIndex);
+                touchY[pointerId] = touchEvent.y;
+                isTouched[pointerId] = true;
+                synchronized (touchEventBuffer)
+                {
+                    touchEventBuffer.add(touchEvent);
+                }
+                break;
+
+            case MotionEvent.ACTION_UP:
+            case MotionEvent.ACTION_POINTER_UP:
+            case MotionEvent.ACTION_CANCEL:
+                touchEvent = touchEventPool.obtains();
+                touchEvent.type = TouchEvent.TouchEventType.Up;
+                touchEvent.pointer = pointerId;
+                touchEvent.x = (int) event.getX(pointerIndex);
+                touchX[pointerId] = touchEvent.x;
+                touchEvent.y = (int) event.getY(pointerIndex);
+                touchY[pointerId] = touchEvent.y;
+                isTouched[pointerId] = false;
+                synchronized (touchEventBuffer)
+                {
+                    touchEventBuffer.add(touchEvent);
+                }
+                break;
+
+            case MotionEvent.ACTION_MOVE:
+                int pointerCount = event.getPointerCount();
+                synchronized (touchEventBuffer)
+                {
+                    for (int i = 0; i < pointerCount; i++)
+                    {
+                        touchEvent = touchEventPool.obtains();
+                        touchEvent.type = TouchEvent.TouchEventType.Dragged;
+                        touchEvent.pointer = pointerId;
+                        pointerIndex = i;
+                        pointerId = event.getPointerId(pointerIndex);
+                        touchEvent.x = (int) event.getX(pointerIndex);
+                        touchX[pointerId] = touchEvent.x;
+                        touchEvent.y = (int) event.getY(pointerIndex);
+                        touchY[pointerId] = touchEvent.y;
+                        isTouched[pointerId] = true;
+                        touchEventBuffer.add(touchEvent);
+                    }
+                }
+                break;
+
+        }
+
         return false;
     }
 
     @Override
     public boolean isTouchDown(int pointer)
+
     {
-        return false;
+        return isTouched[pointer];
     }
 
     @Override
     public int getTouchX(int pointer)
     {
-        return 0;
+        return touchX[pointer];
     }
 
     @Override
     public int getTouchY(int pointer)
     {
-        return 0;
+        return touchY[pointer];
     }
 
 

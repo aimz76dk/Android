@@ -1,5 +1,7 @@
 package aimz76dk.gameengine;
 
+import android.hardware.SensorEvent;
+
 public class TestGame extends GameEngine
 {
 
@@ -7,5 +9,10 @@ public class TestGame extends GameEngine
     public Screen createStartScreen()
     {
         return new TestScreen(this);
+    }
+
+    @Override
+    public void onSensorChanged(SensorEvent sensorEvent) {
+
     }
 }
