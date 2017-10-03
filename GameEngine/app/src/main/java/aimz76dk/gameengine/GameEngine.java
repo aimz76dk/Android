@@ -372,7 +372,7 @@ public abstract class GameEngine extends Activity implements Runnable, SensorEve
                 fillEvents();
                 //now we can do all the drawing stuff
                 currentTime = System.nanoTime();
-                deltaTime = (currentTime - startTime)/100000000.0f;
+                deltaTime = (currentTime - startTime)/1000000000.0f;
                 if(screen != null )
                 {
                     screen.update(deltaTime); //this is were the game does all the logic for the screen
