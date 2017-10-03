@@ -28,6 +28,7 @@ import java.util.List;
 
 public abstract class GameEngine extends Activity implements Runnable, SensorEventListener
 {
+    private int framesPerSecond = 0;
     private Screen screen;
     private Canvas canvas;
     private Bitmap virtualScreen;
@@ -195,7 +196,19 @@ public abstract class GameEngine extends Activity implements Runnable, SensorEve
         }
     } // End of loadBitmap() method
 
-    //public Music loadMusic(String filename) { return null; }
+    public Music loadMusic(String filename)
+    {
+        try
+        {
+            AssetFileDescriptor assetFileDescriptor = getAssets().openFd(filename);
+            return new Music(assetFileDescriptor);
+        } catch (IOException e)
+        {
+            throw new RuntimeException("Could not load music file: " + filename);
+        }
+
+    }
+
     public Sound loadSound(String filename)
     {
         try
@@ -305,6 +318,10 @@ public abstract class GameEngine extends Activity implements Runnable, SensorEve
     @Override
     public void run()
     {
+        long startTime = System.nanoTime();
+        long currentTime = startTime;
+        float deltaTime;
+
         while(true)
         {
             synchronized(stateChanges)
@@ -354,10 +371,13 @@ public abstract class GameEngine extends Activity implements Runnable, SensorEve
                 Canvas canvas = surfaceHolder.lockCanvas();
                 fillEvents();
                 //now we can do all the drawing stuff
+                currentTime = System.nanoTime();
+                deltaTime = (currentTime - startTime)/100000000.0f;
                 if(screen != null )
                 {
-                    screen.update(0); //this is were the game does all the logic for the screen
+                    screen.update(deltaTime); //this is were the game does all the logic for the screen
                 }
+                startTime = currentTime;
                 freeEvents();
                 //after the screen has made all game object to the virtualScreen
                 //we need to copy and resize the virtualScreen to the actual physical surfaceView
@@ -372,7 +392,9 @@ public abstract class GameEngine extends Activity implements Runnable, SensorEve
                 canvas.drawBitmap(virtualScreen, src, dst, null);
 
                 surfaceHolder.unlockCanvasAndPost(canvas);
-            }
-        }
-    }
+            } // end of state running
+
+        } // end of while loop
+    } // end of run()
+
 }
