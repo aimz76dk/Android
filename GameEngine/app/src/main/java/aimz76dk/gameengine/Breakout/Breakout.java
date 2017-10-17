@@ -15,8 +15,7 @@ public class Breakout extends GameEngine
     }
 
     @Override
-    public void onSensorChanged(SensorEvent sensorEvent)
-    {
+    public void onSensorChanged(SensorEvent sensorEvent) {
 
     }
 }
